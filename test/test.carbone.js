@@ -125,7 +125,9 @@ describe('Carbone', function () {
     });
     it('should not crash it the wrong timezone or wrong lang is passed during rendering', function (done) {
       carbone.renderXML('<xml> {d.date:formatD(LTS)} </xml>', { date : '2014-06-01 14:00:00-04:00'}, {timezone : 'BULLSHIT'}, function (err, result) {
-        helper.assert(err+'', 'RangeError: Expected Area/Location(/Location)* for time zone, got BULLSHIT');
+        helper.assert(/BULLSHIT/.test(err), true);
+        helper.assert(/RangeError/.test(err), true);
+        helper.assert(/time zone/.test(err), true);
         helper.assert(result, null);
         carbone.renderXML('<xml> {d.date:formatD(LTS)} </xml>', { date : '2014-06-01 14:00:00-04:00'}, {lang : 'BULLSHIT'}, function (err, result) {
           helper.assert(err+'', 'null');
@@ -346,6 +348,64 @@ describe('Carbone', function () {
         done();
       });
     });
+    it('should accept to filter with boolean (true) in arrays', function (done) {
+      var data = {
+        'param-dash' : [{
+          'filter-val'          : true,
+          'new-param-with-dash' : 'val'
+        }, {
+          'filter-val'          : false,
+          'new-param-with-dash' : 'val1'
+        }, {
+          'filter-val'          : true,
+          'new-param-with-dash' : 'val2'
+        }]
+      };
+      carbone.renderXML('<xml><t>{d.param-dash[i, filter-val=true].new-param-with-dash}</t><t>{d.param-dash[i+1, filter-val=true].new-param-with-dash}</t></xml>', data, function (err, result) {
+        helper.assert(err+'', 'null');
+        helper.assert(result, '<xml><t>val</t><t>val2</t></xml>');
+        done();
+      });
+    });
+    it('should consider the boolean is a string if there are quotes', function (done) {
+      var data = {
+        'param-dash' : [{
+          'filter-val'          : true,
+          'new-param-with-dash' : 'val'
+        }, {
+          'filter-val'          : false,
+          'new-param-with-dash' : 'val1'
+        }, {
+          'filter-val'          : 'true',
+          'new-param-with-dash' : 'val2'
+        }]
+      };
+      carbone.renderXML('<xml><t>{d.param-dash[i, filter-val=\'true\'].new-param-with-dash}</t><t>{d.param-dash[i+1, filter-val=\'true\'].new-param-with-dash}</t></xml>', data, function (err, result) {
+        helper.assert(err+'', 'null');
+        helper.assert(result, '<xml><t>val2</t></xml>');
+        done();
+      });
+    });
+    it('should accept to filter with boolean (false) in arrays', function (done) {
+      var data = {
+        'param-dash' : [{
+          'filter-val'          : true,
+          'new-param-with-dash' : 'val'
+        }, {
+          'filter-val'          : false,
+          'new-param-with-dash' : 'val1'
+        }, {
+          'filter-val'          : true,
+          'new-param-with-dash' : 'val2'
+        }]
+      };
+      carbone.renderXML('<xml><t>{d.param-dash[i, filter-val=false].new-param-with-dash}</t><t>{d.param-dash[i+1, filter-val=false].new-param-with-dash}</t></xml>', data, function (err, result) {
+        helper.assert(err+'', 'null');
+        helper.assert(result, '<xml><t>val1</t></xml>');
+        done();
+      });
+    });
+
     it('should render XML with dahs in array kes and filter keys', function (done) {
       var _xml = '<xml><t_row> {d.cars-dash[sort-dash-s,i].brand-dash-v:count()} {d.cars-dash[sort-dash-s,i].brand-dash-v} </t_row><t_row> {d.cars-dash[sort-dash-s+1,i+1].brand-dash-v} </t_row></xml>';
       var _data = {
@@ -830,6 +890,31 @@ describe('Carbone', function () {
         done();
       });
     });
+
+    it('Should insert the correct values even if aliases are beginning with the same name', function (done) {
+      var _xml = '{#myVar=d.name}{#myVarSecond=d.age}<xml><t_row>{$myVar}<br/>{$myVarSecond}</t_row></xml>';
+      var _xml2 = '{#a = d.report.contact.methods}{#ao = d.report.postal}<xml><div>{$a}</div><div>{$ao}</div></xml>'
+      var _data = {
+        name: "John",
+        age: 20,
+        report: {
+          contact: {
+            methods: 'blue'
+          },
+          postal: 94000
+        }
+      };
+      carbone.renderXML(_xml, _data, function (err, _xmlBuilt) {
+        helper.assert(err+'', 'null');
+        helper.assert(_xmlBuilt, '<xml><t_row>John<br/>20</t_row></xml>');
+        carbone.renderXML(_xml2, _data, function (err, _xmlBuilt) {
+          helper.assert(err+'', 'null');
+          helper.assert(_xmlBuilt, '<xml><div>blue</div><div>94000</div></xml>');
+          done();
+        });
+      });
+    });
+
     describe('Dynamic variables in formatters', function () {
       it('should use variable in object if the variable starts with a point', function (done) {
         var data = {
